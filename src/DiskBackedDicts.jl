@@ -1,0 +1,5 @@
+module DiskBackedDicts
+
+# package code goes here
+
+end # module
