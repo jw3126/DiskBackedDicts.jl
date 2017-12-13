@@ -8,6 +8,22 @@ using JLD
     DiskBackedDict{T} <: Associative{String, T}
 
 # Example
+
+```jldoctest
+julia> using DiskBackedDicts
+
+julia> d = DiskBackedDict("mypath.jld")
+DiskBackedDicts.DiskBackedDict{Any} with 0 entries
+
+julia> d["a"] = 5
+5
+
+julia> d
+DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
+  "a" => 5
+
+julia> d["a"]
+5
 """
 struct DiskBackedDict{T} <: Associative{String, T}
     path::String

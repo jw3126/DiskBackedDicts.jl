@@ -29,3 +29,13 @@ julia> d = DiskBackedDict("mypath.jld")
 DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
   "a" => 5
 ```
+
+## Performance
+
+The whole `Dict` is cached in memory. `getindex` is as fast as for an
+ordinary `Dict`, while `setindex!` is slow.
+
+##$ Limitations
+
+* Only `String` keys are supported.
+* Only one julia process can write access a `DiskBackedDict` at a particular path.
