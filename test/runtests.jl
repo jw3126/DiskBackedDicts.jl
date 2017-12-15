@@ -1,30 +1,66 @@
 using DiskBackedDicts
 using Base.Test
 
-@testset "DiskBackedDict" begin
-    path = string(tempname(), ".jld")
-    d = DiskBackedDict{Int}(path)
-    @test isempty(d)
-    val = rand(Int)
-    d["a"] = val
-    @test length(d) == 1
-    @test d["a"] === val
-    @inferred d["a"]
+function test_dict_interface(d_candidate, d_test)
+    @assert isempty(d_candidate)
+    @assert !isempty(d_test)
     
-    d["a"] = 2
-    @test d["a"] === 2
-    @test_throws KeyError d["b"]
-    d[:b] = 1.0
-    dict = @inferred Dict(d)
-    @test dict isa Dict{String, Int}
-    @test dict == Dict("a"=>2, "b"=>1)
+    @test isempty(d_candidate)
+    @test length(d_candidate) == 0
     
-    path = string(tempname(), ".jld")
-    dict = Dict("a" => [1,2.], "b" => Float64[])
-    d2 = DiskBackedDict(path, dict)
-    @test Dict(d2) == dict
+    k, v = first(d_test)
+    @test !haskey(d_candidate, k)
+    @test v === get(d_candidate, k, v)
+    d_candidate[k] = v
+    @test haskey(d_candidate, k)
+    @test d_candidate[k] == v
+    delete!(d_candidate, k)
+    @test_throws KeyError d_candidate[k]
+    @test isempty(d_candidate)
+    @test v === get!(d_candidate, k, v)
+    
+    merge!(d_candidate, d_test)
+    @test length(d_candidate) == length(d_test)
+    @test length(d_candidate) == length(keys(d_candidate))
+    @test length(d_candidate) == length(values(d_candidate))
+    for (k,v) ∈ d_candidate
+        @test d_test[k] == v
+    end
+end
 
-    path = string(tempname(), ".jld")
+struct S
+    a::String
+end
+struct T
+    b::Int
+end
+
+@testset "DiskBackedDict" begin
+    d = DiskBackedDict(tempname()*".jld")
+    @test d isa DiskBackedDict{Any, Any}
+    d_test = Dict("a"=>1, "b"=>2)
+    test_dict_interface(d, d_test)
+
+    d = @inferred DiskBackedDict{S,T}(tempname()*".jld")
+    @test d isa Associative{S,T}
+    d_test = Dict(S("a") => T(2), S("") => T(0))
+    test_dict_interface(d, d_test)
+    
+    path = tempname()*".jld"
+    d = DiskBackedDict{Int, String}(path)
+    d[1] = "one"
+    @test_throws TypeError DiskBackedDict{S,T}(path)
+    close(d.file)
+
+    @assert ispath(path)
+    d2 = DiskBackedDict{Int, String}(path)
+    @test typeof(d2) == typeof(d)
+    @test d2[1] == "one"
+    @test length(d2) == 1
+    close(d2.file)
+    
     d3 = DiskBackedDict(path)
-    @test d3 isa Associative{String,Any}
+    @test typeof(d3) == typeof(d2)
+    @test d3[1] == "one"
+    @test length(d3) == 1
 end
