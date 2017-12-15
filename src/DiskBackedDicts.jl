@@ -101,7 +101,7 @@ function Base.delete!(o::DiskBackedDict, k)
 end
 
 function Base.setindex!(o::DiskBackedDict{K,V}, val::V, key::K) where {K,V}
-    key ∈ keys(o) && delete!(o, key)
+    haskey(o,key) && delete!(o, key)
     
     o.keystrings[key] = string(Base.Random.uuid1())
     s = o.keystrings[key]
@@ -117,8 +117,13 @@ function Base.setindex!(o::DiskBackedDict{K,V}, val, key) where {K,V}
     val
 end
 
-for f ∈ (:getindex, :keys, :values, :length, :start, :next, :done)
+for f ∈ (:getindex, :keys, :values, :length, :start, :next, :done, :get)
     @eval Base.$f(o::DiskBackedDict, args...) = $f(o.cache, args...)
+end
+
+function Base.get!(o::DiskBackedDict, key, val)
+    haskey(o, key) || setindex!(o,val,key)
+    o[key]
 end
 
 end # module

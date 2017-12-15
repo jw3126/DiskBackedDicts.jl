@@ -9,11 +9,15 @@ function test_dict_interface(d_candidate, d_test)
     @test length(d_candidate) == 0
     
     k, v = first(d_test)
+    @test !haskey(d_candidate, k)
+    @test v === get(d_candidate, k, v)
     d_candidate[k] = v
+    @test haskey(d_candidate, k)
     @test d_candidate[k] == v
     delete!(d_candidate, k)
     @test_throws KeyError d_candidate[k]
     @test isempty(d_candidate)
+    @test v === get!(d_candidate, k, v)
     
     merge!(d_candidate, d_test)
     @test length(d_candidate) == length(d_test)
