@@ -10,23 +10,27 @@
 julia> using DiskBackedDicts
 
 julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any} with 0 entries
+DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
+  "a" => 5
+julia> using DiskBackedDicts
+
+julia> d = DiskBackedDict("mypath.jld")
+DiskBackedDicts.DiskBackedDict{Any,Any} with 0 entries
 
 julia> d["a"] = 5
 5
 
 julia> d
-DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
+DiskBackedDicts.DiskBackedDict{Any,Any} with 1 entry:
   "a" => 5
 
 julia> d["a"]
 5
 
-# one week later "a" will still be stored
 julia> using DiskBackedDicts
 
 julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
+DiskBackedDicts.DiskBackedDict{Any,Any} with 1 entry:
   "a" => 5
 ```
 
@@ -37,5 +41,4 @@ ordinary `Dict`. `setindex!` performs disk operations and is slow.
 
 ## Limitations
 
-* Only `String` keys are supported.
-* Only one julia process can write access a `DiskBackedDict` at a particular path.
+* Only one julia process can access a `DiskBackedDict` at a particular path simultaneously.
