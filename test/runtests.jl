@@ -45,6 +45,9 @@ struct MyPair
     s::MyString
     t::MyInt
 end
+struct MyContainer{T}
+    inner::T
+end
 
 @testset "associative interface" begin
     d = DiskBackedDict(tempname()*".jld")
@@ -101,6 +104,7 @@ assetpath(args...) = joinpath(@__DIR__, "assets", args...)
                   "1.jld"     => Dict(1 => 1),
                   "mixed.jld"=> Dict(1 => "1", :two => [1,2]),
                   "custom_types.jld" => Dict(MyInt(1) => MyString("two")),
+                  "parametric_type.jld" => Dict(MyContainer(1) => MyContainer(MyInt(1))),
                  ]
 
         path = assetpath(s)
