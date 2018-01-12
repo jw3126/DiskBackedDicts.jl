@@ -62,10 +62,8 @@ end
 
 function DiskBackedDict(path::String)
     if ispath(path)
-        d = jldopen(path, "r") do file
-            d = file[CONTENT_DICT]
-            @assert d isa Dict
-            d
+        d::Dict = jldopen(path, "r") do file
+            file[CONTENT_DICT]
         end
         K = eltype(keys(d))
         V = eltype(values(d))
