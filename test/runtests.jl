@@ -34,12 +34,23 @@ end
 struct T
     b::Int
 end
+struct ST
+    s::S
+    t::T
+end
 
 @testset "DiskBackedDict" begin
     d = DiskBackedDict(tempname()*".jld")
     @test d isa DiskBackedDict{Any, Any}
     d_test = Dict("a"=>1, "b"=>2)
     test_dict_interface(d, d_test)
+
+    d = DiskBackedDict(tempname()*".jld")
+    t = T(1)
+    s = S("s")
+    st = ST(s,t)
+    d_test = Dict("a"=>1, "b"=>2, "s" => s,
+                  st => t)
 
     d = @inferred DiskBackedDict{S,T}(tempname()*".jld")
     @test d isa Associative{S,T}

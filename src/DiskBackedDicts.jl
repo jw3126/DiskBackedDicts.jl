@@ -4,6 +4,7 @@ module DiskBackedDicts
 export DiskBackedDict
 
 using JLD
+# using JLD2
 
 const SKeyType = "KeyType"
 const SValueType = "ValueType"
