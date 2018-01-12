@@ -23,44 +23,51 @@ function test_dict_interface(d_candidate, d_test)
     @test length(d_candidate) == length(d_test)
     @test length(d_candidate) == length(keys(d_candidate))
     @test length(d_candidate) == length(values(d_candidate))
-    for (k,v) ∈ d_candidate
-        @test d_test[k] == v
+    associative_elements_equal(d_candidate, d_test)
+end
+
+function associative_elements_equal(d1,d2)
+    @test length(d1) == length(d2)
+    for (k,v) in d1
+        @test haskey(d2, k)
+        @test d2[k] == v
     end
 end
 
-struct S
+struct MyString
     a::String
 end
-struct T
+Base.:(==)(s1::MyString, s2::MyString) = s1.a == s2.a
+struct MyInt
     b::Int
 end
-struct ST
-    s::S
-    t::T
+struct MyPair
+    s::MyString
+    t::MyInt
 end
 
-@testset "DiskBackedDict" begin
+@testset "associative interface" begin
     d = DiskBackedDict(tempname()*".jld")
     @test d isa DiskBackedDict{Any, Any}
     d_test = Dict("a"=>1, "b"=>2)
     test_dict_interface(d, d_test)
 
     d = DiskBackedDict(tempname()*".jld")
-    t = T(1)
-    s = S("s")
-    st = ST(s,t)
+    t = MyInt(1)
+    s = MyString("s")
+    st = MyPair(s,t)
     d_test = Dict("a"=>1, "b"=>2, "s" => s,
                   st => t)
 
-    d = @inferred DiskBackedDict{S,T}(tempname()*".jld")
-    @test d isa Associative{S,T}
-    d_test = Dict(S("a") => T(2), S("") => T(0))
+    d = @inferred DiskBackedDict{MyString,MyInt}(tempname()*".jld")
+    @test d isa Associative{MyString,MyInt}
+    d_test = Dict(MyString("a") => MyInt(2), MyString("") => MyInt(0))
     test_dict_interface(d, d_test)
     
     path = tempname()*".jld"
     d = DiskBackedDict{Int, String}(path)
     d[1] = "one"
-    @test_throws TypeError DiskBackedDict{S,T}(path)
+    @test_throws TypeError DiskBackedDict{MyString,MyInt}(path)
     close(d.file)
 
     @assert ispath(path)
@@ -74,4 +81,29 @@ end
     @test typeof(d3) == typeof(d2)
     @test d3[1] == "one"
     @test length(d3) == 1
+end
+
+function test_long_term_persistence(path, d::Dict{K,V}) where {K,V}
+    if !ispath(path)
+        d_save = DiskBackedDict{K,V}(path)
+        info("$path does not exist, create it with content $d")
+        merge!(d_save, d)
+        close(d_save.file)
+    end
+    d_loaded = DiskBackedDict{K,V}(path)
+    associative_elements_equal(d, d_loaded)
+end
+
+assetpath(args...) = joinpath(@__DIR__, "assets", args...)
+@testset "long term persistence" begin
+    for (s, d) ∈ [
+                  "empty.jld" => Dict(),
+                  "1.jld"     => Dict(1 => 1),
+                  "mixed.jld"=> Dict(1 => "1", :two => [1,2]),
+                  "custom_types.jld" => Dict(MyInt(1) => MyString("two")),
+                 ]
+
+        path = assetpath(s)
+        test_long_term_persistence(path, d)
+    end
 end
