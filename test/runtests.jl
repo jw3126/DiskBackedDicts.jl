@@ -1,5 +1,6 @@
 using DiskBackedDicts
 using Base.Test
+using DiskBackedDicts.TestUtils
 
 function test_dict_interface(d_candidate, d_test)
     @assert isempty(d_candidate)
@@ -34,21 +35,6 @@ function associative_elements_equal(d1,d2)
     end
 end
 
-struct MyString
-    a::String
-end
-Base.:(==)(s1::MyString, s2::MyString) = s1.a == s2.a
-struct MyInt
-    b::Int
-end
-struct MyPair
-    s::MyString
-    t::MyInt
-end
-struct MyContainer{T}
-    inner::T
-end
-
 @testset "associative interface" begin
     d = DiskBackedDict(tempname()*".jld")
     @test d isa DiskBackedDict{Any, Any}
@@ -71,14 +57,12 @@ end
     d = DiskBackedDict{Int, String}(path)
     d[1] = "one"
     @test_throws TypeError DiskBackedDict{MyString,MyInt}(path)
-    close(d.file)
 
     @assert ispath(path)
     d2 = DiskBackedDict{Int, String}(path)
     @test typeof(d2) == typeof(d)
     @test d2[1] == "one"
     @test length(d2) == 1
-    close(d2.file)
     
     d3 = DiskBackedDict(path)
     @test typeof(d3) == typeof(d2)
@@ -91,7 +75,6 @@ function test_long_term_persistence(path, d::Dict{K,V}) where {K,V}
         d_save = DiskBackedDict{K,V}(path)
         info("$path does not exist, create it with content $d")
         merge!(d_save, d)
-        close(d_save.file)
     end
     d_loaded = DiskBackedDict{K,V}(path)
     associative_elements_equal(d, d_loaded)
@@ -109,5 +92,24 @@ assetpath(args...) = joinpath(@__DIR__, "assets", args...)
 
         path = assetpath(s)
         test_long_term_persistence(path, d)
+    end
+end
+
+@testset "modify existing DiskBackedDict" begin
+    path = assetpath("dict_to_be_extended.jld")
+    if !ispath(path)
+        info("$path does not exist, create it")
+        d = DiskBackedDict{Int, MyContainer{Int}}(path)
+        d[1] = MyContainer(1)
+    else
+        d = DiskBackedDict{Int, MyContainer{Int}}(path)
+        @test !isempty(d)
+        m = maximum(keys(d))
+        @test m == length(d)
+        info("m = $m")
+        d[m+1] = MyContainer(m+1)
+        for (k,v) in d
+            @test k == v.inner
+        end
     end
 end

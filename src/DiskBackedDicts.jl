@@ -3,12 +3,10 @@ module DiskBackedDicts
 
 export DiskBackedDict
 
-using JLD
+using JLD2
 # using JLD2
 
-const SKeyType = "KeyType"
-const SValueType = "ValueType"
-
+const CONTENT_DICT = "CONTENT_DICT"
 """
     DiskBackedDict{T} <: Associative{String, T}
 
@@ -33,89 +31,65 @@ julia> d["a"]
 struct DiskBackedDict{K,V} <: Associative{K,V}
     path::String
     cache::Dict{K,V}
-    keystrings::Dict{K, String}
-    file::JLD.JldFile
     function DiskBackedDict{K,V}(path::String) where {K,V}
         local cache :: Dict{K,V}
-        local keystrings::Dict{K, String}
         if !ispath(path)
+            cache = Dict{K,V}()
             jldopen(path, "w") do file
-                file[SKeyType] = K
-                file[SValueType] = V
+                file[CONTENT_DICT] = cache
+            end
+        else
+            jldopen(path, "r") do file
+                d = file[CONTENT_DICT]
+                Kgot = eltype(keys(d))
+                if Kgot != K
+                    msg = "mismatch between expected key type and loaded type"
+                    err = TypeError(:DiskBackedDict, msg, K, Kgot)
+                    throw(err)
+                end
+                Vgot = eltype(values(d))
+                if Vgot != V
+                    msg = "mismatch between expected value type and loaded type"
+                    err = TypeError(:DiskBackedDict, msg, V, Vgot)
+                    throw(err)
+                end
+                cache = d
             end
         end
-        keystrings, cache = get_keystrings_cache(K,V,path)
-        file = jldopen(path, "r+")
-        new(path, cache, keystrings, file)
+        new(path, cache)
     end
 end
 
 function DiskBackedDict(path::String)
     if ispath(path)
-        jldopen(path, "r+") do file
-            K = read(file, SKeyType)
-            V = read(file, SValueType)
+        d = jldopen(path, "r") do file
+            d = file[CONTENT_DICT]
+            @assert d isa Dict
+            d
         end
+        K = eltype(keys(d))
+        V = eltype(values(d))
     else
-        K,V = Any,Any
+        K = Any
+        V = Any
     end
     DiskBackedDict{K,V}(path)
 end
 
-function get_keystrings_cache(K,V,pairdict::Dict{String})
-    cache = Dict{K,V}()
-    keystrings = Dict{K,String}()
-    for (s, (k,v)) ∈ pairdict
-        keystrings[k] = s
-        cache[k] = v
-    end
-    keystrings, cache
-end
-
-
-function get_keystrings_cache(K::Type,V::Type,path::String)
-    @assert ispath(path)
-    d = jldopen(read, path, "r")::Dict
-    K_file = d[SKeyType]
-    V_file = d[SValueType]
-    if K_file != K
-        msg = "$SKeyType in $path does not match expectation."
-        err = TypeError(:get_keystrings_cache, msg, K, K_file)
-        throw(err)
-    end
-    if V_file != V
-        msg = "$SValueType in $path does not match expectation."
-        err = TypeError(:get_keystrings_cache, msg, V, V_file)
-        throw(err)
-    end
-    delete!(d,SKeyType)
-    delete!(d,SValueType)
-    get_keystrings_cache(K,V,d)
-end
-
 function Base.delete!(o::DiskBackedDict, k)
-    delete!(o.cache, k)
-    s = o.keystrings[k]
-    delete!(o.keystrings, k)
-    delete!(o.file, s)
-    o
+    ret = delete!(o.cache, k)
+    _save(o)
+    ret
 end
 
-function Base.setindex!(o::DiskBackedDict{K,V}, val::V, key::K) where {K,V}
-    haskey(o,key) && delete!(o, key)
-    
-    o.keystrings[key] = string(Base.Random.uuid1())
-    s = o.keystrings[key]
-    o.file[s] = (key => val)
-    o.cache[key] = val
-    val
+_save(o::DiskBackedDict) = jldopen(o.path, "w") do file
+    file[CONTENT_DICT] = o.cache
 end
 
-function Base.setindex!(o::DiskBackedDict{K,V}, val, key) where {K,V}
-    k = convert(K, key)
-    v = convert(V, val)
-    o[k] = v
-    val
+function Base.setindex!(o::DiskBackedDict, key, val)
+    ret = setindex!(o.cache, key, val)
+    _save(o)
+    ret
 end
 
 for f ∈ (:getindex, :keys, :values, :length, :start, :next, :done, :get)
@@ -126,5 +100,7 @@ function Base.get!(o::DiskBackedDict, key, val)
     haskey(o, key) || setindex!(o,val,key)
     o[key]
 end
+
+include("util_for_tests.jl")
 
 end # module
