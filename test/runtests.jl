@@ -1,5 +1,5 @@
 using DiskBackedDicts
-using Base.Test
+using Test
 
 function test_dict_interface(d_candidate, d_test)
     @assert isempty(d_candidate)
