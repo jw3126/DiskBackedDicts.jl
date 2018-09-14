@@ -8,6 +8,14 @@ using JLD2
 const SJLD2DICT = "data"
 struct JLD2Dict{K,V} <: AbstractDict{K,V}
     path::String
+    function JLD2Dict{K,V}(path::AbstractString) where {K,V}
+        if !(splitext(path)[2] == ".jld2")
+            msg = """Path must end with .jld2, got:
+            path = $path"""
+            throw(ArgumentError(msg))
+        end
+        new(String(path))
+    end
 end
 
 function get_dict(obj::JLD2Dict{K,V}) where {K,V}
@@ -24,7 +32,7 @@ function set_dict(obj::JLD2Dict{K,V}, d) where {K,V}
 end
 
 const PURE_DICT_INTERFACE = [:getindex, :keys, :values, :length, :get, :iterate]
-const MUT_DICT_INTERFACE = [:delete!, :setindex!]
+const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!]
 
 
 for f ∈ PURE_DICT_INTERFACE
@@ -76,6 +84,8 @@ struct DiskBackedDict{K,V} <: AbstractDict{K,V}
         new(inner)
     end
 end
+
+DiskBackedDict(path::AbstractString) = DiskBackedDict{Any,Any}(path)
 
 
 for f in [PURE_DICT_INTERFACE;MUT_DICT_INTERFACE]
