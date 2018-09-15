@@ -1,130 +1,95 @@
 __precompile__()
 module DiskBackedDicts
-
 export DiskBackedDict
 
-using JLD
-# using JLD2
+using FileIO
+using JLD2
 
-const SKeyType = "KeyType"
-const SValueType = "ValueType"
-
-"""
-    DiskBackedDict{T} <: Associative{String, T}
-
-# Example
-
-```jldoctest
-julia> using DiskBackedDicts
-
-julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any} with 0 entries
-
-julia> d["a"] = 5
-5
-
-julia> d
-DiskBackedDicts.DiskBackedDict{Any,Any} with 1 entry:
-  "a" => 5
-
-julia> d["a"]
-5
-"""
-struct DiskBackedDict{K,V} <: Associative{K,V}
+const SJLD2DICT = "data"
+struct JLD2Dict{K,V} <: AbstractDict{K,V}
     path::String
+    function JLD2Dict{K,V}(path::AbstractString) where {K,V}
+        if !(splitext(path)[2] == ".jld2")
+            msg = """Path must end with .jld2, got:
+            path = $path"""
+            throw(ArgumentError(msg))
+        end
+        new(String(path))
+    end
+end
+
+function get_dict(obj::JLD2Dict{K,V}) where {K,V}
+    if !(ispath(obj.path))
+        dir = splitdir(obj.path)[1]
+        mkpath(dir)
+        FileIO.save(obj.path, Dict(SJLD2DICT => Dict{K,V}()))
+    end
+    ret::Dict{K,V} = FileIO.load(obj.path, SJLD2DICT)
+end
+
+function set_dict(obj::JLD2Dict{K,V}, d) where {K,V}
+    FileIO.save(obj.path, Dict(SJLD2DICT => Dict{K,V}(d)))
+end
+
+const PURE_DICT_INTERFACE = [:getindex, :keys, :values, :length, :get, :iterate]
+const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!]
+
+
+for f ∈ PURE_DICT_INTERFACE
+    @eval function Base.$f(obj::JLD2Dict, args...)
+        d = get_dict(obj)
+        $f(d, args...)
+    end
+end
+
+for f in MUT_DICT_INTERFACE
+    @eval function Base.$f(obj::JLD2Dict, args...)
+        d = get_dict(obj)
+        ret = $f(d, args...)
+        set_dict(obj, d)
+        ret
+    end
+end
+
+struct CachedDict{K,V,D} <: AbstractDict{K,V}
     cache::Dict{K,V}
-    keystrings::Dict{K, String}
-    file::JLD.JldFile
-    function DiskBackedDict{K,V}(path::String) where {K,V}
-        local cache :: Dict{K,V}
-        local keystrings::Dict{K, String}
-        if !ispath(path)
-            jldopen(path, "w") do file
-                file[SKeyType] = K
-                file[SValueType] = V
-            end
-        end
-        keystrings, cache = get_keystrings_cache(K,V,path)
-        file = jldopen(path, "r+")
-        new(path, cache, keystrings, file)
-    end
+    storage::D
 end
 
-function DiskBackedDict(path::String)
-    if ispath(path)
-        jldopen(path, "r+") do file
-            K = read(file, SKeyType)
-            V = read(file, SValueType)
-        end
-    else
-        K,V = Any,Any
-    end
-    DiskBackedDict{K,V}(path)
-end
-
-function get_keystrings_cache(K,V,pairdict::Dict{String})
+function CachedDict(storage::AbstractDict{K,V}) where {K,V}
     cache = Dict{K,V}()
-    keystrings = Dict{K,String}()
-    for (s, (k,v)) ∈ pairdict
-        keystrings[k] = s
-        cache[k] = v
+    merge!(cache, storage)
+    CachedDict(cache, storage)
+end
+
+for f ∈ PURE_DICT_INTERFACE
+    @eval function Base.$f(obj::CachedDict, args...)
+        d = obj.cache
+        $f(d, args...)
     end
-    keystrings, cache
 end
 
-
-function get_keystrings_cache(K::Type,V::Type,path::String)
-    @assert ispath(path)
-    d = jldopen(read, path, "r")::Dict
-    K_file = d[SKeyType]
-    V_file = d[SValueType]
-    if K_file != K
-        msg = "$SKeyType in $path does not match expectation."
-        err = TypeError(:get_keystrings_cache, msg, K, K_file)
-        throw(err)
+for f in MUT_DICT_INTERFACE
+    @eval function Base.$f(obj::CachedDict, args...)
+        $f(obj.storage, args...)
+        $f(obj.cache,   args...)
     end
-    if V_file != V
-        msg = "$SValueType in $path does not match expectation."
-        err = TypeError(:get_keystrings_cache, msg, V, V_file)
-        throw(err)
+end
+
+struct DiskBackedDict{K,V} <: AbstractDict{K,V}
+    inner::CachedDict{K,V,JLD2Dict{K,V}}
+    function DiskBackedDict{K,V}(path::AbstractString) where {K,V}
+        storage = JLD2Dict{K,V}(path)
+        inner = CachedDict(storage)
+        new(inner)
     end
-    delete!(d,SKeyType)
-    delete!(d,SValueType)
-    get_keystrings_cache(K,V,d)
 end
 
-function Base.delete!(o::DiskBackedDict, k)
-    delete!(o.cache, k)
-    s = o.keystrings[k]
-    delete!(o.keystrings, k)
-    delete!(o.file, s)
-    o
-end
+DiskBackedDict(path::AbstractString) = DiskBackedDict{Any,Any}(path)
 
-function Base.setindex!(o::DiskBackedDict{K,V}, val::V, key::K) where {K,V}
-    haskey(o,key) && delete!(o, key)
-    
-    o.keystrings[key] = string(Base.Random.uuid1())
-    s = o.keystrings[key]
-    o.file[s] = (key => val)
-    o.cache[key] = val
-    val
-end
 
-function Base.setindex!(o::DiskBackedDict{K,V}, val, key) where {K,V}
-    k = convert(K, key)
-    v = convert(V, val)
-    o[k] = v
-    val
-end
-
-for f ∈ (:getindex, :keys, :values, :length, :start, :next, :done, :get)
-    @eval Base.$f(o::DiskBackedDict, args...) = $f(o.cache, args...)
-end
-
-function Base.get!(o::DiskBackedDict, key, val)
-    haskey(o, key) || setindex!(o,val,key)
-    o[key]
+for f in [PURE_DICT_INTERFACE;MUT_DICT_INTERFACE]
+    @eval (Base.$f)(d::DiskBackedDict, args...) = $f(d.inner, args...)
 end
 
 end # module
