@@ -58,7 +58,7 @@ end
 
 function CachedDict(storage::AbstractDict{K,V}) where {K,V}
     cache = Dict{K,V}()
-    merge!(cache, storage)
+    _merge!(cache, storage)
     CachedDict(cache, storage)
 end
 
@@ -87,9 +87,41 @@ end
 
 DiskBackedDict(path::AbstractString) = DiskBackedDict{Any,Any}(path)
 
-
 for f in [PURE_DICT_INTERFACE;MUT_DICT_INTERFACE]
     @eval (Base.$f)(d::DiskBackedDict, args...) = $f(d.inner, args...)
+end
+
+# merge! is an important operation, since it allows to do "batch" transactions
+function Base.merge!(
+        o1::Union{CachedDict,JLD2Dict,DiskBackedDict},
+        d2::AbstractDict)
+    _merge!(o1, d2)
+end
+
+function _merge!(d1, d2)
+    _merge1!(d1, _batch_reader(d2))
+end
+
+_batch_reader(d::JLD2Dict) = get_dict(d)
+_batch_reader(d::AbstractDict) = d
+
+function _merge1!(o1::JLD2Dict, r2)
+    d1 = get_dict(o1)
+    merge!(d1, r2)
+    set_dict(o1, d1)
+    o1
+end
+function _merge1!(d1, r2)
+    merge!(d1, r2)
+end
+function _merge1!(o1::CachedDict, r2)
+    _merge1!(o1.cache,   r2)
+    _merge1!(o1.storage, r2)
+    o1
+end
+function _merge1!(o1::DiskBackedDict, r2)
+    _merge1!(o1.inner, r2)
+    o1
 end
 
 end # module

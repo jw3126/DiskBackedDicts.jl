@@ -134,3 +134,33 @@ assetpath(args...) = joinpath(@__DIR__, "assets", args...)
         test_long_term_persistence(path, d)
     end
 end
+
+@testset "merge!" begin
+    dst_ref = Dict(1=>1, 2=>2)
+    src_ref = Dict(2=>2, 3=>3)
+    res_ref = Dict(1=>1, 2=>2, 3=>3)
+    function _replace!(dst, src)
+        empty!(dst)
+        merge!(dst, src)
+    end
+    srcs = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
+            DBD.CachedDict(Dict(),Dict()),
+            DBD.DiskBackedDict(tempname() * ".jld2")
+           ]
+    dsts = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
+            DBD.CachedDict(Dict(),Dict()),
+            DBD.DiskBackedDict(tempname() * ".jld2")
+           ]
+    for src in srcs
+        for dst in dsts
+            _replace!(src, src_ref)
+            _replace!(dst, dst_ref)
+            associative_elements_equal(src, src_ref)
+            associative_elements_equal(dst, dst_ref)
+            res = merge!(dst, src)
+            @test res === dst
+            @test typeof(res) == typeof(dst)
+            associative_elements_equal(res, res_ref)
+        end
+    end
+end
