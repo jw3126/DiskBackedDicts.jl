@@ -137,19 +137,21 @@ end
 
 @testset "merge!" begin
     dst_ref = Dict(1=>1, 2=>2)
-    src_ref = Dict(2=>2, 3=>3)
-    res_ref = Dict(1=>1, 2=>2, 3=>3)
+    src_ref = Dict(2=>2.5, 3=>3)
+    res_ref = Dict(1=>1, 2=>2.5, 3=>3)
     function _replace!(dst, src)
         empty!(dst)
         merge!(dst, src)
     end
     srcs = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
             DBD.CachedDict(Dict(),Dict()),
-            DBD.DiskBackedDict(tempname() * ".jld2")
+            DBD.DiskBackedDict(tempname() * ".jld2"),
+            Dict(),
            ]
     dsts = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
             DBD.CachedDict(Dict(),Dict()),
-            DBD.DiskBackedDict(tempname() * ".jld2")
+            DBD.DiskBackedDict(tempname() * ".jld2"),
+            Dict(),
            ]
     for src in srcs
         for dst in dsts
