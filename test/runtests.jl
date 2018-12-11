@@ -27,6 +27,9 @@ function test_dict_interface(d_candidate, d_test)
     @test length(d_candidate) == length(keys(d_candidate))
     @test length(d_candidate) == length(values(d_candidate))
     associative_elements_equal(d_candidate, d_test)
+
+    @test !isempty(d_candidate)
+    @test isempty(empty!(d_candidate))
 end
 
 function associative_elements_equal(d1,d2)

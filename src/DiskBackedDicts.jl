@@ -32,7 +32,7 @@ function set_dict(obj::JLD2Dict{K,V}, d) where {K,V}
 end
 
 const PURE_DICT_INTERFACE = [:getindex, :keys, :values, :length, :get, :iterate]
-const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!]
+const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!, :empty!]
 
 
 for f ∈ PURE_DICT_INTERFACE
