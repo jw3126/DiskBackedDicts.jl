@@ -9,29 +9,35 @@
 ```julia
 julia> using DiskBackedDicts
 
-julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any} with 1 entry:
-  "a" => 5
-julia> using DiskBackedDicts
+julia> d = DiskBackedDict("somepath.jld2")
+DiskBackedDict{Any,Any} with 0 entries
 
-julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any,Any} with 0 entries
-
-julia> d["a"] = 5
-5
+julia> d["hello"] = "world"
+"world"
 
 julia> d
-DiskBackedDicts.DiskBackedDict{Any,Any} with 1 entry:
-  "a" => 5
+DiskBackedDict{Any,Any} with 1 entry:
+  "hello" => "world"
 
-julia> d["a"]
-5
+julia> exit()
+```
+Now start a new session:
+```julia
+               _
+   _       _ _(_)_     |  Documentation: https://docs.julialang.org
+  (_)     | (_) (_)    |
+   _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
+  | | | | | | |/ _` |  |
+  | | |_| | | | (_| |  |  Version 1.0.1 (2018-09-29)
+ _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
+|__/                   |
 
 julia> using DiskBackedDicts
 
-julia> d = DiskBackedDict("mypath.jld")
-DiskBackedDicts.DiskBackedDict{Any,Any} with 1 entry:
-  "a" => 5
+julia> d = DiskBackedDict("somepath.jld2")
+DiskBackedDict{Any,Any} with 1 entry:
+  "hello" => "world"
+
 ```
 
 ## Performance
