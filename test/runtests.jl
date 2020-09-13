@@ -16,6 +16,8 @@ function test_dict_interface(d_candidate, d_test)
     @test v === get(d_candidate, k, v)
     d_candidate[k] = v
     @test !isempty(d_candidate)
+    @test !isempty(keys(d_candidate))
+    @test !isempty(values(d_candidate))
     @test haskey(d_candidate, k)
     @test d_candidate[k] == v
     @test d_candidate == delete!(d_candidate, k)
