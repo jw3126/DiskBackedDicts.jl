@@ -78,6 +78,7 @@ end
             DiskBackedDict{K,V}(tempname()*".jld2"),
             DBD.JLD2BlobDict{K,V}(tempname()*".jld2"),
             DBD.FullyCachedDict(DBD.JLD2BlobDict{K,V}(tempname()*".jld2")),
+            DBD.CachedDict{K,V}(Dict{K,V}(), Dict{K,V}()),
         ]
         for d_candidate in candidates
             test_dict_interface(d_candidate, d_test)
