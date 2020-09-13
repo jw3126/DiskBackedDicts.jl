@@ -18,8 +18,9 @@ function test_dict_interface(d_candidate, d_test)
     @test !isempty(d_candidate)
     @test haskey(d_candidate, k)
     @test d_candidate[k] == v
-    delete!(d_candidate, k)
+    @test d_candidate == delete!(d_candidate, k)
     @test_throws KeyError d_candidate[k]
+    @test d_candidate == delete!(d_candidate, k)
     @test isempty(d_candidate)
     @test v === get!(d_candidate, k, v)
 
@@ -79,6 +80,9 @@ end
             DBD.JLD2BlobDict{K,V}(tempname()*".jld2"),
             DBD.FullyCachedDict(DBD.JLD2BlobDict{K,V}(tempname()*".jld2")),
             DBD.CachedDict{K,V}(Dict{K,V}(), Dict{K,V}()),
+            Dict{K,V}(),
+            DBD.JLD2FilesDict{K,V}(tempname()*".jld2"),
+            DBD.CachedDict{K,V}(Dict{K,V}(), DBD.JLD2FilesDict{K,V}(tempname()*".jld2")),
         ]
         for d_candidate in candidates
             test_dict_interface(d_candidate, d_test)

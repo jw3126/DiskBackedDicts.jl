@@ -137,6 +137,11 @@ struct JLD2FilesStringDict{V} <: AbstractDict{String, V}
     end
 end
 
+function Base.delete!(o::JLD2FilesStringDict, key)
+    rm(valuepath(o, key), force=true)
+    return o
+end
+
 headerpath(o::JLD2FilesStringDict) = joinpath(o.root, "header.jld2")
 valuedir(o::JLD2FilesStringDict) = joinpath(o.root, "values")
 valuepath(o::JLD2FilesStringDict, key::AbstractString) = joinpath(valuedir(o), key)
@@ -144,6 +149,15 @@ valuepath(o::JLD2FilesStringDict, key::AbstractString) = joinpath(valuedir(o), k
 function JLD2FilesStringDict(root::AbstractString)
     V = Any
     JLD2FilesStringDict{V}(root)
+end
+
+function Base.empty!(o::JLD2FilesStringDict)
+    dir = valuedir(o)
+    for filename in readdir(dir)
+        path = joinpath(dir, filename)
+        rm(path)
+    end
+    return o
 end
 
 function Base.getindex(o::JLD2FilesStringDict, key::AbstractString)
@@ -194,11 +208,15 @@ struct JLD2FilesDict{K, V, H} <: AbstractDict{K,V}
     hash::H
 end
 
-function JLD2FilesDict(path::AbstractString, hash=string∘Base.hash)
-    K = V = Any
+function JLD2FilesDict{K,V}(path::AbstractString, hash=string∘Base.hash) where {K,V}
     H = typeof(hash)
     stringdict = JLD2FilesStringDict{Dict{K,V}}(path)
     return JLD2FilesDict{K,V,H}(stringdict, hash)
+end
+
+function JLD2FilesDict(path::AbstractString, hash=string∘Base.hash)
+    K = V = Any
+    return JLD2FilesDict{K,V}(path, hash)
 end
 
 function Base.keys(o::JLD2FilesDict)
@@ -206,7 +224,21 @@ function Base.keys(o::JLD2FilesDict)
     for skey in keys(o.stringdict)
         append!(ret, keys(o.stringdict[skey]))
     end
-    ret
+    return ret
+end
+
+function Base.delete!(o::JLD2FilesDict, key)
+    if haskey(o, key)
+        skey = _skey(o, key)
+        d = o.stringdict[skey]
+        if length(d) == 1
+            Base.delete!(o.stringdict, skey)
+        else
+            Base.delete!(d, key)
+            o.stringdict[skey] = d
+        end
+    end
+    return o
 end
 Base.length(o::JLD2FilesDict) = length(keys(o))
 
@@ -214,6 +246,16 @@ Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}) = iterate_pairs_key_b
 Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}, state) = iterate_pairs_key_based(o, state)
 
 _skey(o, key)::String = o.hash(convert(keytype(o), key))
+
+function Base.get(o::JLD2FilesDict, key, val)
+    if haskey(o, key)
+        o[key]
+    else
+        val
+    end
+end
+Base.empty!(o::JLD2FilesDict) = empty!(o.stringdict)
+
 function Base.getindex(o::JLD2FilesDict, key)
     skey = _skey(o, key)
     d = try
@@ -307,9 +349,9 @@ function Base.empty!(o::CachedDict)
 end
 function Base.delete!(o::CachedDict, key)
     if haskey(o.cache, key)
-        delete!(o.cache, key)
+        Base.delete!(o.cache, key)
     end
-    return delete!(o.storage, key)
+    return Base.delete!(o.storage, key)
 end
 function Base.get(o::CachedDict, key, val)
     get(o.cache, key) do
