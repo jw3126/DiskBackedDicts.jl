@@ -76,8 +76,8 @@ end
         V = eltype(values(d_test))
         candidates = [
             DiskBackedDict{K,V}(tempname()*".jld2"),
-            DBD.JLD2Dict{K,V}(tempname()*".jld2"),
-            DBD.CachedDict(DBD.JLD2Dict{K,V}(tempname()*".jld2")),
+            DBD.JLD2BlobDict{K,V}(tempname()*".jld2"),
+            DBD.FullyCachedDict(DBD.JLD2BlobDict{K,V}(tempname()*".jld2")),
         ]
         for d_candidate in candidates
             test_dict_interface(d_candidate, d_test)
@@ -145,13 +145,13 @@ end
         empty!(dst)
         merge!(dst, src)
     end
-    srcs = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
-            DBD.CachedDict(Dict(),Dict()),
+    srcs = [DBD.JLD2BlobDict{Any,Any}(tempname() * ".jld2"),
+            DBD.FullyCachedDict(Dict(),Dict()),
             DBD.DiskBackedDict(tempname() * ".jld2"),
             Dict(),
            ]
-    dsts = [DBD.JLD2Dict{Any,Any}(tempname() * ".jld2"),
-            DBD.CachedDict(Dict(),Dict()),
+    dsts = [DBD.JLD2BlobDict{Any,Any}(tempname() * ".jld2"),
+            DBD.FullyCachedDict(Dict(),Dict()),
             DBD.DiskBackedDict(tempname() * ".jld2"),
             Dict(),
            ]

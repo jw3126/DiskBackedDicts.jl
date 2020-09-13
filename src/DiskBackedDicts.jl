@@ -5,10 +5,9 @@ export DiskBackedDict
 using ArgCheck
 using JLD2
 
-const SJLD2DICT = "data"
-struct JLD2Dict{K,V} <: AbstractDict{K,V}
+struct JLD2BlobDict{K,V} <: AbstractDict{K,V}
     path::String
-    function JLD2Dict{K,V}(path::AbstractString) where {K,V}
+    function JLD2BlobDict{K,V}(path::AbstractString) where {K,V}
         if !(splitext(path)[2] == ".jld2")
             msg = """Path must end with .jld2, got:
             path = $path"""
@@ -18,7 +17,7 @@ struct JLD2Dict{K,V} <: AbstractDict{K,V}
     end
 end
 
-function get_dict(obj::JLD2Dict{K,V}) where {K,V}
+function get_dict(obj::JLD2BlobDict{K,V}) where {K,V}
     if !(ispath(obj.path))
         dir = splitdir(obj.path)[1]
         mkpath(dir)
@@ -30,7 +29,7 @@ function get_dict(obj::JLD2Dict{K,V}) where {K,V}
     return convert(Dict{K,V},data)
 end
 
-function set_dict(obj::JLD2Dict{K,V}, data::AbstractDict{K,V}) where {K,V}
+function set_dict(obj::JLD2BlobDict{K,V}, data::AbstractDict{K,V}) where {K,V}
     return JLD2.@save obj.path data
 end
 
@@ -39,14 +38,14 @@ const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!, :empty!]
 
 
 for f ∈ PURE_DICT_INTERFACE
-    @eval function Base.$f(obj::JLD2Dict, args...)
+    @eval function Base.$f(obj::JLD2BlobDict, args...)
         d = get_dict(obj)
         $f(d, args...)
     end
 end
 
 for f in MUT_DICT_INTERFACE
-    @eval function Base.$f(obj::JLD2Dict, args...)
+    @eval function Base.$f(obj::JLD2BlobDict, args...)
         d = get_dict(obj)
         ret = $f(d, args...)
         set_dict(obj, d)
@@ -54,49 +53,53 @@ for f in MUT_DICT_INTERFACE
     end
 end
 
-struct CachedDict{K,V,C,S} <: AbstractDict{K,V}
+"""
+    FullyCachedDict([cache,] storage)
+
+"""
+struct FullyCachedDict{K,V,C,S} <: AbstractDict{K,V}
     cache::C
     storage::S
-    function CachedDict{K,V}(cache::C, storage::S) where {K,V,C,S}
+    function FullyCachedDict{K,V}(cache::C, storage::S) where {K,V,C,S}
         @argcheck keytype(storage) === keytype(cache) === K
         @argcheck valtype(storage) === valtype(cache) === V
         return new{K,V,C,S}(cache, storage)
     end
 end
 
-function CachedDict(cache, storage)
+function FullyCachedDict(cache, storage)
     @argcheck keytype(storage) === keytype(cache)
     @argcheck valtype(storage) === valtype(cache)
     K = keytype(storage)
     V = valtype(storage)
-    return CachedDict{K,V}(cache, storage)
+    return FullyCachedDict{K,V}(cache, storage)
 end
 
-function CachedDict(storage::AbstractDict{K,V}) where {K,V}
+function FullyCachedDict(storage::AbstractDict{K,V}) where {K,V}
     cache = Dict{K,V}()
     _merge!(cache, storage)
-    return CachedDict{K,V}(cache, storage)
+    return FullyCachedDict{K,V}(cache, storage)
 end
 
 for f ∈ PURE_DICT_INTERFACE
-    @eval function Base.$f(obj::CachedDict, args...)
+    @eval function Base.$f(obj::FullyCachedDict, args...)
         d = obj.cache
         $f(d, args...)
     end
 end
 
 for f in MUT_DICT_INTERFACE
-    @eval function Base.$f(obj::CachedDict, args...)
+    @eval function Base.$f(obj::FullyCachedDict, args...)
         $f(obj.storage, args...)
         $f(obj.cache,   args...)
     end
 end
 
 struct DiskBackedDict{K,V} <: AbstractDict{K,V}
-    inner::CachedDict{K,V,Dict{K,V}, JLD2Dict{K,V}}
+    inner::FullyCachedDict{K,V,Dict{K,V}, JLD2BlobDict{K,V}}
     function DiskBackedDict{K,V}(path::AbstractString) where {K,V}
-        storage = JLD2Dict{K,V}(path)
-        inner = CachedDict(storage)
+        storage = JLD2BlobDict{K,V}(path)
+        inner = FullyCachedDict(storage)
         return new(inner)
     end
 end
@@ -109,7 +112,7 @@ end
 
 # merge! is an important operation, since it allows to do "batch" transactions
 function Base.merge!(
-        o1::Union{CachedDict,JLD2Dict,DiskBackedDict},
+        o1::Union{FullyCachedDict,JLD2BlobDict,DiskBackedDict},
         d2::AbstractDict)
     _merge!(o1, d2)
 end
@@ -118,10 +121,10 @@ function _merge!(d1, d2)
     _merge1!(d1, _batch_reader(d2))
 end
 
-_batch_reader(d::JLD2Dict) = get_dict(d)
+_batch_reader(d::JLD2BlobDict) = get_dict(d)
 _batch_reader(d::AbstractDict) = d
 
-function _merge1!(o1::JLD2Dict, r2)
+function _merge1!(o1::JLD2BlobDict, r2)
     d1 = get_dict(o1)
     merge!(d1, r2)
     set_dict(o1, d1)
@@ -130,7 +133,7 @@ end
 function _merge1!(d1, r2)
     merge!(d1, r2)
 end
-function _merge1!(o1::CachedDict, r2)
+function _merge1!(o1::FullyCachedDict, r2)
     _merge1!(o1.cache,   r2)
     _merge1!(o1.storage, r2)
     o1
