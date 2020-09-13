@@ -5,23 +5,24 @@ using Test
 function test_dict_interface(d_candidate, d_test)
     @assert isempty(d_candidate)
     @assert !isempty(d_test)
-    
+
     @test isempty(d_candidate)
     @test isempty(keys(d_candidate))
     @test isempty(values(d_candidate))
     @test length(d_candidate) == 0
-    
+
     k, v = first(d_test)
     @test !haskey(d_candidate, k)
     @test v === get(d_candidate, k, v)
     d_candidate[k] = v
+    @test !isempty(d_candidate)
     @test haskey(d_candidate, k)
     @test d_candidate[k] == v
     delete!(d_candidate, k)
     @test_throws KeyError d_candidate[k]
     @test isempty(d_candidate)
     @test v === get!(d_candidate, k, v)
-    
+
     merge!(d_candidate, d_test)
     @test length(d_candidate) == length(d_test)
     @test length(d_candidate) == length(keys(d_candidate))
@@ -74,9 +75,10 @@ end
         K = eltype(keys(d_test))
         V = eltype(values(d_test))
         candidates = [
-                      DiskBackedDict{K,V}(tempname()*".jld2"),
-                      DBD.JLD2Dict{K,V}(tempname()*".jld2"),
-                      DBD.CachedDict(DBD.JLD2Dict{K,V}(tempname()*".jld2"))]
+            DiskBackedDict{K,V}(tempname()*".jld2"),
+            DBD.JLD2Dict{K,V}(tempname()*".jld2"),
+            DBD.CachedDict(DBD.JLD2Dict{K,V}(tempname()*".jld2")),
+        ]
         for d_candidate in candidates
             test_dict_interface(d_candidate, d_test)
         end
@@ -90,7 +92,7 @@ end
 
     d = @inferred DiskBackedDict{MyString,MyInt}(tempname()*".jld2")
     @test d isa AbstractDict{MyString,MyInt}
-    
+
     path = tempname()*".jld2"
     d = DiskBackedDict{Int, String}(path)
     d[1] = "one"
@@ -101,7 +103,7 @@ end
     @test typeof(d2) == typeof(d)
     @test d2[1] == "one"
     @test length(d2) == 1
-    
+
     d3 = DiskBackedDict(path)
     @test_broken typeof(d3) == typeof(d2)
     @test d3[1] == "one"

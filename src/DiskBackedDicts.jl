@@ -1,8 +1,8 @@
-__precompile__()
 module DiskBackedDicts
+
 export DiskBackedDict
 
-using FileIO
+using ArgCheck
 using JLD2
 
 const SJLD2DICT = "data"
@@ -22,13 +22,16 @@ function get_dict(obj::JLD2Dict{K,V}) where {K,V}
     if !(ispath(obj.path))
         dir = splitdir(obj.path)[1]
         mkpath(dir)
-        FileIO.save(obj.path, Dict(SJLD2DICT => Dict{K,V}()))
+        data = Dict{K,V}()
+        JLD2.@save obj.path data
     end
-    ret::Dict{K,V} = FileIO.load(obj.path, SJLD2DICT)
+    JLD2.@load(obj.path, data)
+
+    return convert(Dict{K,V},data)
 end
 
-function set_dict(obj::JLD2Dict{K,V}, d) where {K,V}
-    FileIO.save(obj.path, Dict(SJLD2DICT => Dict{K,V}(d)))
+function set_dict(obj::JLD2Dict{K,V}, data::AbstractDict{K,V}) where {K,V}
+    return JLD2.@save obj.path data
 end
 
 const PURE_DICT_INTERFACE = [:getindex, :keys, :values, :length, :get, :iterate]
@@ -51,15 +54,28 @@ for f in MUT_DICT_INTERFACE
     end
 end
 
-struct CachedDict{K,V,D} <: AbstractDict{K,V}
-    cache::Dict{K,V}
-    storage::D
+struct CachedDict{K,V,C,S} <: AbstractDict{K,V}
+    cache::C
+    storage::S
+    function CachedDict{K,V}(cache::C, storage::S) where {K,V,C,S}
+        @argcheck keytype(storage) === keytype(cache) === K
+        @argcheck valtype(storage) === valtype(cache) === V
+        return new{K,V,C,S}(cache, storage)
+    end
+end
+
+function CachedDict(cache, storage)
+    @argcheck keytype(storage) === keytype(cache)
+    @argcheck valtype(storage) === valtype(cache)
+    K = keytype(storage)
+    V = valtype(storage)
+    return CachedDict{K,V}(cache, storage)
 end
 
 function CachedDict(storage::AbstractDict{K,V}) where {K,V}
     cache = Dict{K,V}()
     _merge!(cache, storage)
-    CachedDict(cache, storage)
+    return CachedDict{K,V}(cache, storage)
 end
 
 for f ∈ PURE_DICT_INTERFACE
@@ -77,11 +93,11 @@ for f in MUT_DICT_INTERFACE
 end
 
 struct DiskBackedDict{K,V} <: AbstractDict{K,V}
-    inner::CachedDict{K,V,JLD2Dict{K,V}}
+    inner::CachedDict{K,V,Dict{K,V}, JLD2Dict{K,V}}
     function DiskBackedDict{K,V}(path::AbstractString) where {K,V}
         storage = JLD2Dict{K,V}(path)
         inner = CachedDict(storage)
-        new(inner)
+        return new(inner)
     end
 end
 
