@@ -39,7 +39,6 @@ end
 const PURE_DICT_INTERFACE = [:getindex, :keys, :values, :length, :get, :iterate]
 const MUT_DICT_INTERFACE = [:delete!, :setindex!, :get!, :empty!]
 
-
 for f ∈ PURE_DICT_INTERFACE
     @eval function Base.$f(obj::JLD2BlobDict, args...)
         d = get_dict(obj)
@@ -54,6 +53,19 @@ for f in MUT_DICT_INTERFACE
         set_dict(obj, d)
         ret
     end
+end
+
+function Base.get(f::Base.Callable, o::JLD2BlobDict, key)
+    d = get_dict(o)
+    get(f,d,key)
+end
+function Base.get!(f::Base.Callable, o::JLD2BlobDict, key)
+    if haskey(o, key)
+        nothing
+    else
+        o[key] = f()
+    end
+    return o[key]
 end
 
 ################################################################################
@@ -106,6 +118,19 @@ for f in MUT_DICT_INTERFACE
     end
 end
 
+function Base.get(f::Base.Callable, o::FullyCachedDict, key)
+    get(f, o.cache, key)
+end
+function Base.get!(f::Base.Callable, o::FullyCachedDict, key)
+    if haskey(o, key)
+        val = o[key]
+    else
+        val = f()
+        o[key] = val
+    end
+    return val
+end
+
 ################################################################################
 ##### DiskBackedDict
 ################################################################################
@@ -123,6 +148,7 @@ DiskBackedDict(path::AbstractString) = DiskBackedDict{Any,Any}(path)
 for f in [PURE_DICT_INTERFACE;MUT_DICT_INTERFACE]
     @eval (Base.$f)(d::DiskBackedDict, args...) = $f(d.inner, args...)
 end
+Base.get(f::Base.Callable, o::DiskBackedDict, key) = Base.get(f, o.inner, key)
 
 ################################################################################
 ##### JLD2FilesStringDict
@@ -199,6 +225,25 @@ function iterate_pairs_key_based(o, state)
         key => o[key], (keystate=keystate, keys=state.keys)
     end
 end
+function getwith_naive!(f, o, key)
+    if haskey(o, key)
+        return o[key]
+    else
+        val = convert(valtype(o), f())
+        o[key] = val
+        return val
+    end
+end
+function getwith_naive(f, o, key)
+    if haskey(o, key)
+        return o[key]
+    else
+        f()
+    end
+end
+
+Base.get!(f::Base.Callable, o::JLD2FilesStringDict, key) = getwith_naive!(f,o,key)
+Base.get(f::Base.Callable, o::JLD2FilesStringDict, key) = getwith_naive(f,o,key)
 
 ################################################################################
 ##### JLD2FilesDict
@@ -207,6 +252,9 @@ struct JLD2FilesDict{K, V, H} <: AbstractDict{K,V}
     stringdict::JLD2FilesStringDict{Dict{K,V}}
     hash::H
 end
+
+Base.get!(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive!(f,o,key)
+Base.get(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive(f,o,key)
 
 function JLD2FilesDict{K,V}(path::AbstractString, hash=string∘Base.hash) where {K,V}
     H = typeof(hash)
@@ -361,6 +409,16 @@ end
 function Base.get!(o::CachedDict, key, val)
     get!(o.cache, key) do
         get!(o.storage, key, val)
+    end
+end
+function Base.get!(f::Base.Callable, o::CachedDict, key)
+    get!(o.cache, key) do
+        get!(f, o.storage, key)
+    end
+end
+function Base.get(f::Base.Callable, o::CachedDict, key)
+    get(o.cache, key) do
+        get(f, o.storage, key)
     end
 end
 

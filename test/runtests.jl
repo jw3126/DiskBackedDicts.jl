@@ -23,6 +23,13 @@ function test_dict_interface(d_candidate, d_test)
     @test d_candidate == delete!(d_candidate, k)
     @test isempty(d_candidate)
     @test v === get!(d_candidate, k, v)
+    get!(error, d_candidate, k)
+    get(error, d_candidate, k)
+    delete!(d_candidate, k)
+    @test v === get(() -> v, d_candidate, k)
+    @test !haskey(d_candidate, k)
+    @test v === get!(() -> v, d_candidate, k)
+    @test d_candidate[k] === v
 
     merge!(d_candidate, d_test)
     @test length(d_candidate) == length(d_test)
