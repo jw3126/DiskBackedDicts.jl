@@ -1,4 +1,5 @@
 module DiskBackedDicts
+using CachedDicts
 
 export DiskBackedDict
 
@@ -338,88 +339,6 @@ function Base.setindex!(o::JLD2FilesDict, val, key)
     d[key] = val
     o.stringdict[skey] = d
     return val
-end
-
-################################################################################
-##### CachedDict
-################################################################################
-"""
-    CachedDict([cache,] storage) <: AbstractDict
-
-A cached variant of storage. See also [`FullyCachedDict`](@ref).
-"""
-struct CachedDict{K,V,C,S} <: AbstractDict{K,V}
-    cache::C
-    storage::S
-    function CachedDict{K,V}(cache::C, storage::S) where {K,V,C,S}
-        @argcheck keytype(storage) === keytype(cache) === K
-        @argcheck valtype(storage) === valtype(cache) === V
-        return new{K,V,C,S}(cache, storage)
-    end
-end
-
-function CachedDict(cache, storage)
-    @argcheck keytype(storage) === keytype(cache)
-    @argcheck valtype(storage) === valtype(cache)
-    K = keytype(storage)
-    V = valtype(storage)
-    return CachedDict{K,V}(cache, storage)
-end
-
-function CachedDict(storage::AbstractDict{K,V}) where {K,V}
-    cache = Dict{K,V}()
-    return CachedDict{K,V}(cache, storage)
-end
-
-function Base.getindex(o::CachedDict, key)
-    get!(o.cache, key) do
-        o.storage[key]
-    end
-end
-function Base.haskey(o::CachedDict, key)
-    haskey(o.cache, key) || haskey(o.storage, key)
-end
-function Base.setindex!(o::CachedDict, val, key)
-    ret = o.storage[key] = val
-    o.cache[key] = val
-    return ret
-end
-Base.iterate(o::CachedDict) = iterate_pairs_key_based(o)
-Base.iterate(o::CachedDict, state) = iterate_pairs_key_based(o, state)
-
-for f in [:(Base.keys), :(Base.values), :(Base.length)]
-    @eval $f(o::CachedDict) = $f(o.storage)
-end
-
-function Base.empty!(o::CachedDict)
-    empty!(o.cache)
-    empty!(o.storage)
-end
-function Base.delete!(o::CachedDict, key)
-    if haskey(o.cache, key)
-        Base.delete!(o.cache, key)
-    end
-    return Base.delete!(o.storage, key)
-end
-function Base.get(o::CachedDict, key, val)
-    get(o.cache, key) do
-        get(o.storage, key, val)
-    end
-end
-function Base.get!(o::CachedDict, key, val)
-    get!(o.cache, key) do
-        get!(o.storage, key, val)
-    end
-end
-function Base.get!(f::Base.Callable, o::CachedDict, key)
-    get!(o.cache, key) do
-        get!(f, o.storage, key)
-    end
-end
-function Base.get(f::Base.Callable, o::CachedDict, key)
-    get(o.cache, key) do
-        get(f, o.storage, key)
-    end
 end
 
 ################################################################################
