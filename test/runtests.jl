@@ -12,7 +12,6 @@ using Test
     @test length(d) == 2
     @test d.length == 1
     sprint(show, d)
-    print(d)
 
     d[1]
     @test d.getindex == 1
