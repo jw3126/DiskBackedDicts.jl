@@ -394,4 +394,84 @@ function _merge1!(o1::DiskBackedDict, r2)
     o1
 end
 
+################################################################################
+#### DictWithStats
+################################################################################
+mutable struct DictWithStats{K,V,D} <: AbstractDict{K,V}
+    const dict::D
+    empty!::Int
+    getindex::Int
+    haskey::Int
+    keys::Int
+    length::Int
+    setindex!::Int
+    delete!::Int
+    isempty::Int
+    iterate::Int
+    get::Int
+end
+function Base.show(io::IO, o::DictWithStats)
+    pnames = collect(Symbol,Base.tail(propertynames(o)))
+    @assert !(:dict in pnames)
+    println(io, "$(typeof(o)) with $(length(o)) entries and stats:")
+    pnames = sort!(pnames, by=pname->getproperty(o, pname), rev=true)
+    for pname in pnames
+        println(io, "  ", pname, " = ", getproperty(o, pname))
+    end
+    println(io)
+end
+
+function Base.get(f::Base.Callable, o::DictWithStats, key)
+    o.get += 1
+    get(f, o.dict, key)
+end
+function Base.get(o::DictWithStats, key, val)
+    o.get += 1
+    get(o.dict, key, val)
+end
+function DictWithStats(d::AbstractDict{K,V}) where {K,V}
+    DictWithStats{K,V,typeof(d)}(d, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+end
+function Base.iterate(o::DictWithStats)
+    o.iterate += 1
+    iterate(o.dict)
+end
+function Base.iterate(o::DictWithStats, state)
+    o.iterate += 1
+    iterate(o.dict, state)
+end
+
+function Base.length(o::DictWithStats)
+    o.length += 1
+    length(o.dict)
+end
+function Base.getindex(o::DictWithStats, key)
+    o.getindex += 1
+    getindex(o.dict, key)
+end
+function Base.setindex!(o::DictWithStats, val, key)
+    o.setindex! += 1
+    setindex!(o.dict, val, key)
+end
+function Base.haskey(o::DictWithStats, key)
+    o.haskey += 1
+    haskey(o.dict, key)
+end
+function Base.keys(o::DictWithStats)
+    o.keys += 1
+    keys(o.dict)
+end
+function Base.empty!(o::DictWithStats)
+    o.empty! += 1
+    empty!(o.dict)
+end
+function Base.delete!(o::DictWithStats, key)
+    o.delete! += 1
+    delete!(o.dict, key)
+end
+function Base.isempty(d::DictWithStats)
+    d.isempty += 1
+    isempty(d.dict)
+end
+
 end # module
