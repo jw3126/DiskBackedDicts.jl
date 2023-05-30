@@ -257,7 +257,7 @@ end
 Base.get!(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive!(f,o,key)
 Base.get(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive(f,o,key)
 
-function JLD2FilesDict{K,V}(path::AbstractString, hash=string∘Base.hash) where {K,V}
+function JLD2FilesDict{K,V}(path::AbstractString, hash=repr∘Base.hash) where {K,V}
     H = typeof(hash)
     stringdict = JLD2FilesStringDict{Dict{K,V}}(path)
     return JLD2FilesDict{K,V,H}(stringdict, hash)

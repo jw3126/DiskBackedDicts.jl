@@ -182,3 +182,57 @@ end
         end
     end
 end
+
+struct HashCollision
+    payload::Int
+end
+function Base.hash(o::HashCollision,h::UInt)
+    h
+end
+
+@testset "HashCollision" begin
+    ds = [DBD.JLD2BlobDict{Any,Any}(tempname() * ".jld2"),
+            DBD.FullyCachedDict(Dict(),Dict()),
+            DBD.DiskBackedDict(tempname() * ".jld2"),
+            DBD.JLD2FilesDict{HashCollision,Int}(tempname() * ".jld2"),
+            Dict(),
+           ]
+    k1 = HashCollision(1)
+    k2 = HashCollision(2)
+    k3 = HashCollision(3)
+    @test hash(k1) == hash(k2)
+    for d in ds
+        @test isempty(d)
+        d[k1] = 1
+        @test haskey(d, k1)
+        @test !haskey(d, k2)
+        @test !haskey(d, k3)
+        @test length(d) == 1
+
+        d[k2] = 2
+        @test haskey(d, k1)
+        @test haskey(d, k2)
+        @test !haskey(d, k3)
+        @test length(d) == 2
+        @test d[k1] == 1
+        @test d[k2] == 2
+
+        d[k3] = 3
+        @test haskey(d, k1)
+        @test haskey(d, k2)
+        @test haskey(d, k3)
+        @test length(d) == 3
+        @test d[k1] == 1
+        @test d[k2] == 2
+        @test d[k3] == 3
+
+        delete!(d, k2)
+        @test haskey(d, k1)
+        @test !haskey(d, k2)
+        @test haskey(d, k3)
+        @test length(d) == 2
+        @test d[k1] == 1
+        @test_throws KeyError d[k2]
+        @test d[k3] == 3
+    end
+end
