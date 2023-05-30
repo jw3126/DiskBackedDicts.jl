@@ -249,23 +249,21 @@ Base.get(f::Base.Callable, o::JLD2FilesStringDict, key) = getwith_naive(f,o,key)
 ################################################################################
 ##### JLD2FilesDict
 ################################################################################
-struct JLD2FilesDict{K, V, H} <: AbstractDict{K,V}
+struct JLD2FilesDict{K, V} <: AbstractDict{K,V}
     stringdict::JLD2FilesStringDict{Dict{K,V}}
-    hash::H
 end
 
 Base.get!(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive!(f,o,key)
 Base.get(f::Base.Callable, o::JLD2FilesDict, key) = getwith_naive(f,o,key)
 
-function JLD2FilesDict{K,V}(path::AbstractString, hash=repr∘Base.hash) where {K,V}
-    H = typeof(hash)
+function JLD2FilesDict{K,V}(path::AbstractString) where {K,V}
     stringdict = JLD2FilesStringDict{Dict{K,V}}(path)
-    return JLD2FilesDict{K,V,H}(stringdict, hash)
+    return JLD2FilesDict{K,V}(stringdict)
 end
 
-function JLD2FilesDict(path::AbstractString, hash=repr∘Base.hash)
+function JLD2FilesDict(path::AbstractString)
     K = V = Any
-    return JLD2FilesDict{K,V}(path, hash)
+    return JLD2FilesDict{K,V}(path)
 end
 
 function Base.keys(o::JLD2FilesDict)
@@ -278,7 +276,7 @@ end
 
 function Base.delete!(o::JLD2FilesDict, key)
     if haskey(o, key)
-        skey = _skey(o, key)
+        skey = get_stringkey(o, key)
         d = o.stringdict[skey]
         if length(d) == 1
             Base.delete!(o.stringdict, skey)
@@ -294,8 +292,10 @@ Base.length(o::JLD2FilesDict) = length(keys(o))
 Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}) = iterate_pairs_key_based(o)
 Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}, state) = iterate_pairs_key_based(o, state)
 
-function _skey(o, key)::String 
-    o.hash(convert(keytype(o), key))::String
+function get_stringkey(o::JLD2FilesDict, key)::String 
+    h = Base.hash(convert(keytype(o), key))
+    filename = "$(repr(h)).jld2"
+    filename
 end
 
 function Base.get(o::JLD2FilesDict, key, val)
@@ -308,7 +308,7 @@ end
 Base.empty!(o::JLD2FilesDict) = empty!(o.stringdict)
 
 function Base.getindex(o::JLD2FilesDict, key)
-    skey = _skey(o, key)
+    skey = get_stringkey(o, key)
     d = try
         o.stringdict[skey]
     catch err
@@ -334,7 +334,7 @@ function Base.setindex!(o::JLD2FilesDict, val, key)
     V = valtype(o)
     key = convert(K, key)
     val = convert(V, val)
-    skey = _skey(o, key)
+    skey = get_stringkey(o, key)
     d = get!(o.stringdict, skey) do
         Dict{K,V}()
     end
