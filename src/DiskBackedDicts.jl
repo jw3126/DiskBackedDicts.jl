@@ -165,6 +165,10 @@ struct JLD2FilesStringDict{V} <: AbstractDict{String, V}
     end
 end
 
+function Base.haskey(o::JLD2FilesStringDict, key)
+    return isfile(valuepath(o, key))
+end
+
 function Base.delete!(o::JLD2FilesStringDict, key)
     rm(valuepath(o, key), force=true)
     return o
@@ -272,6 +276,15 @@ function Base.keys(o::JLD2FilesDict)
         append!(ret, keys(o.stringdict[skey]))
     end
     return ret
+end
+
+function Base.haskey(o::JLD2FilesDict, key)::Bool
+    skey = get_stringkey(o, key)
+    if haskey(o.stringdict, skey)
+        haskey(o.stringdict[skey], key)
+    else
+        false
+    end
 end
 
 function Base.delete!(o::JLD2FilesDict, key)
