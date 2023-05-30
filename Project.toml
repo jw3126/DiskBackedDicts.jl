@@ -11,6 +11,7 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 [compat]
 ArgCheck = "1, 2"
 JLD2 = "0.4.22"
+CachedDicts = "0.1"
 julia = "1.6"
 
 [extras]
