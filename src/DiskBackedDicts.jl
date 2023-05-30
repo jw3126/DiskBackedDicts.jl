@@ -2,6 +2,7 @@ module DiskBackedDicts
 using CachedDicts
 
 export DiskBackedDict
+export JLD2FilesDict
 
 using ArgCheck
 using JLD2
@@ -169,7 +170,6 @@ function Base.delete!(o::JLD2FilesStringDict, key)
     return o
 end
 
-headerpath(o::JLD2FilesStringDict) = joinpath(o.root, "header.jld2")
 valuedir(o::JLD2FilesStringDict) = joinpath(o.root, "values")
 valuepath(o::JLD2FilesStringDict, key::AbstractString) = joinpath(valuedir(o), key)
 
@@ -263,7 +263,7 @@ function JLD2FilesDict{K,V}(path::AbstractString, hash=repr∘Base.hash) where {
     return JLD2FilesDict{K,V,H}(stringdict, hash)
 end
 
-function JLD2FilesDict(path::AbstractString, hash=string∘Base.hash)
+function JLD2FilesDict(path::AbstractString, hash=repr∘Base.hash)
     K = V = Any
     return JLD2FilesDict{K,V}(path, hash)
 end
@@ -294,7 +294,9 @@ Base.length(o::JLD2FilesDict) = length(keys(o))
 Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}) = iterate_pairs_key_based(o)
 Base.iterate(o::Union{JLD2FilesStringDict, JLD2FilesDict}, state) = iterate_pairs_key_based(o, state)
 
-_skey(o, key)::String = o.hash(convert(keytype(o), key))
+function _skey(o, key)::String 
+    o.hash(convert(keytype(o), key))::String
+end
 
 function Base.get(o::JLD2FilesDict, key, val)
     if haskey(o, key)
