@@ -2,6 +2,28 @@ using DiskBackedDicts
 const DBD = DiskBackedDicts
 using Test
 
+@testset "DictWithStats" begin
+    d = DBD.DictWithStats(Dict())
+    d[1] = 1
+    @test d.setindex! == 1
+    d[2] = 2
+    @test d.setindex! == 2
+    @test d.getindex == 0
+    @test length(d) == 2
+    @test d.length == 1
+    sprint(show, d)
+
+    d[1]
+    @test d.getindex == 1
+end
+
+struct HashCollision
+    payload::Int
+end
+function Base.hash(o::HashCollision,h::UInt)
+    h
+end
+
 function test_dict_interface(d_candidate, d_test)
     @assert isempty(d_candidate)
     @assert !isempty(d_test)
@@ -81,6 +103,9 @@ end
     d_test = Dict(MyString("a") => MyInt(2), MyString("") => MyInt(0))
     push!(test_dicts, d_test)
 
+    d_test = Dict(HashCollision(1) =>1, HashCollision(2) => 2, HashCollision(3) => 3)
+    push!(test_dicts, d_test)
+
     for d_test in test_dicts
         K = eltype(keys(d_test))
         V = eltype(values(d_test))
@@ -92,6 +117,7 @@ end
             Dict{K,V}(),
             DBD.JLD2FilesDict{K,V}(tempname()*".jld2"),
             DBD.CachedDict{K,V}(Dict{K,V}(), DBD.JLD2FilesDict{K,V}(tempname()*".jld2")),
+            DBD.DictWithStats(Dict{K,V}()),
         ]
         for d_candidate in candidates
             test_dict_interface(d_candidate, d_test)
@@ -183,13 +209,6 @@ end
     end
 end
 
-struct HashCollision
-    payload::Int
-end
-function Base.hash(o::HashCollision,h::UInt)
-    h
-end
-
 @testset "HashCollision" begin
     ds = [DBD.JLD2BlobDict{Any,Any}(tempname() * ".jld2"),
             DBD.FullyCachedDict(Dict(),Dict()),
@@ -236,3 +255,4 @@ end
         @test d[k3] == 3
     end
 end
+

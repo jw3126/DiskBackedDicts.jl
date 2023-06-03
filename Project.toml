@@ -12,7 +12,8 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 ArgCheck = "1, 2"
 JLD2 = "0.4.22"
 CachedDicts = "0.1"
-julia = "1.6"
+julia = "1.8"
+
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
